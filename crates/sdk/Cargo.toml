@@ -1,0 +1,8 @@
+[package]
+name = "durabletask-sdk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+durabletask-protos = { path = "../protos" }
+tokio = { workspace = true }

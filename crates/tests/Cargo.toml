@@ -1,0 +1,9 @@
+[package]
+name = "durabletask-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+testcontainers = { version = "0.23.1" }
+tokio = { workspace = true }

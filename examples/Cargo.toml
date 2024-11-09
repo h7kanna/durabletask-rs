@@ -1,0 +1,15 @@
+[package]
+name = "durabletask-examples"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[[example]]
+doc = false
+name = "activity_sequence"
+path = "src/activity_sequence.rs"
+required-features = []
+
+[dependencies]
+anyhow = { workspace = true }
+tokio = { workspace = true }
