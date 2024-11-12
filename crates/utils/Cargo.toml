@@ -1,14 +1,13 @@
 [package]
-name = "durabletask-client"
+name = "durabletask-utils"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
 durabletask-proto = { path = "../proto" }
-durabletask-types = { path = "../types" }
+durabletask-sdk = { path = "../sdk" }
 futures-util = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
-tonic = { workspace = true }
 tracing = { workspace = true }

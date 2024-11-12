@@ -1,0 +1,6 @@
+[build]
+rustflags = ["-Adead_code", "-Aunused", "-Awarnings"]
+
+[alias]
+format = "fmt --all --verbose"
+lint = "clippy --workspace --all-targets --verbose -- --deny warnings -W clippy::cargo -W clippy::dbg_macro -A clippy::cargo_common_metadata -A clippy::multiple_crate_versions"
