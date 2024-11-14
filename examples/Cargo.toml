@@ -15,6 +15,7 @@ required-features = ["logger"]
 
 [dependencies]
 anyhow = { workspace = true }
+durabletask-client = { path = "../crates/client" }
 durabletask-sdk = { path = "../crates/sdk" }
 serde = { workspace = true }
 tokio = { workspace = true }

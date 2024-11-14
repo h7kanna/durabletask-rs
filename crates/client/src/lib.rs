@@ -1,16 +1,24 @@
 use durabletask_proto::task_hub_sidecar_service_client::TaskHubSidecarServiceClient;
-use durabletask_proto::{CreateInstanceRequest, TerminateRequest};
+use durabletask_proto::{
+    purge_instances_request, CreateInstanceRequest, CreateInstanceResponse, PurgeInstancesRequest,
+    PurgeInstancesResponse, TerminateRequest, TerminateResponse,
+};
 
 pub struct Client {
     inner: TaskHubSidecarServiceClient<tonic::transport::Channel>,
 }
 
 impl Client {
+    pub async fn new(host: String) -> Result<Self, anyhow::Error> {
+        let inner = TaskHubSidecarServiceClient::connect(host).await?;
+        Ok(Self { inner })
+    }
+
     pub async fn schedule_new_orchestration(
         &mut self,
         instance_id: String,
         name: String,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<CreateInstanceResponse, anyhow::Error> {
         let request = CreateInstanceRequest {
             instance_id,
             name,
@@ -22,19 +30,31 @@ impl Client {
             tags: Default::default(),
         };
         let response = self.inner.start_instance(request).await?;
-        Ok(())
+        Ok(response.into_inner())
     }
 
     pub async fn terminate_orchestration(
         &mut self,
         instance_id: String,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<TerminateResponse, anyhow::Error> {
         let request = TerminateRequest {
             instance_id,
             output: None,
             recursive: false,
         };
         let response = self.inner.terminate_instance(request).await?;
-        Ok(())
+        Ok(response.into_inner())
+    }
+
+    pub async fn purge_orchestration(
+        &mut self,
+        instance_id: String,
+    ) -> Result<PurgeInstancesResponse, anyhow::Error> {
+        let request = PurgeInstancesRequest {
+            recursive: false,
+            request: Some(purge_instances_request::Request::InstanceId(instance_id)),
+        };
+        let response = self.inner.purge_instances(request).await?;
+        Ok(response.into_inner())
     }
 }
