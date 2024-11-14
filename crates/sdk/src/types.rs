@@ -1,17 +1,21 @@
 // API portions are similar to temporal-sdk for now.
 // Errors are not handled anyhow everywhere to speed up prototyping
-use crate::internal::new_schedule_task_action;
+use crate::internal::{new_create_timer_action, new_schedule_task_action};
 use crate::task::CompletableTask;
 use durabletask_proto::OrchestratorAction;
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
 use parking_lot::RwLock;
+use prost_wkt_types::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::future::Future;
+use std::ops::Add;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 use tokio::sync::oneshot;
+use tracing::debug;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -125,17 +129,36 @@ pub struct ActivityContext {
     pub task_id: i32,
 }
 
+impl ActivityContext {
+    pub(crate) fn new(orchestration_id: String, task_id: i32) -> Self {
+        Self {
+            orchestration_id,
+            task_id,
+        }
+    }
+}
+
 /// Activity result
 pub type ActivityResult<T> = Result<T, anyhow::Error>;
 
 type ActivityFn = Arc<
-    dyn Fn(ActivityContext, Vec<u8>) -> BoxFuture<'static, Result<Vec<u8>, anyhow::Error>>
+    dyn Fn(ActivityContext, Option<String>) -> BoxFuture<'static, Result<Vec<u8>, anyhow::Error>>
         + Send
         + Sync,
 >;
 
 pub struct ActivityFunction {
     pub(crate) activity_fn: ActivityFn,
+}
+
+impl ActivityFunction {
+    pub(crate) fn call(
+        &self,
+        ctx: ActivityContext,
+        input: Option<String>,
+    ) -> BoxFuture<'static, ActivityResult<Vec<u8>>> {
+        (self.activity_fn)(ctx, input)
+    }
 }
 
 pub trait IntoActivityFunc<Args, Res, Out> {
@@ -150,8 +173,9 @@ where
     O: AsJsonPayloadExt,
 {
     fn into_activity_fn(self) -> ActivityFn {
-        let wrapper = move |ctx: ActivityContext, input: Vec<u8>| match A::from_json_payload(&input)
-        {
+        let wrapper = move |ctx: ActivityContext, input: Option<String>| match A::from_json_payload(
+            &input.unwrap_or("test".to_string()).as_bytes(),
+        ) {
             Ok(deser) => self(ctx, deser)
                 .map(|r| {
                     r.and_then(|r| match r.as_json_payload() {
@@ -220,7 +244,17 @@ impl OrchestratorContext {
         "".to_string()
     }
 
-    pub fn create_timer(&self) {}
+    pub fn create_timer(&self, fire_after_millis: u64) -> CompletableTask {
+        let id = self.next_sequence_number();
+        let timestamp =
+            Timestamp::from(SystemTime::now().add(Duration::from_millis(fire_after_millis)));
+        let action = new_create_timer_action(id, &timestamp);
+        self.actions_tx.send((id, action)).expect("cannot happen");
+        let (task, unblock) = CompletableTask::new();
+        self.tasks_tx.send((id, unblock)).expect("cannot happen");
+        debug!("Call timer task {}", id);
+        task
+    }
 
     pub async fn call_activity<A, F, R>(
         &self,
@@ -244,7 +278,10 @@ impl OrchestratorContext {
             ..options
         };
         let activity_result = self.schedule_activity(&options.activity_type, None).await;
-
+        debug!(
+            "Result: {}",
+            String::from_utf8(activity_result.clone()).unwrap()
+        );
         Ok(R::from_json_payload(&activity_result).expect("output deserialization failed"))
     }
 
@@ -254,7 +291,7 @@ impl OrchestratorContext {
         self.actions_tx.send((id, action)).expect("cannot happen");
         let (task, unblock) = CompletableTask::new();
         self.tasks_tx.send((id, unblock)).expect("cannot happen");
-        println!("Call activity task {}", id);
+        debug!("Call activity task {}", id);
         task
     }
 

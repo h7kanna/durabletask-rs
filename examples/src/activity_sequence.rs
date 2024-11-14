@@ -5,6 +5,7 @@ use durabletask_sdk::types::{
 };
 use durabletask_sdk::worker::Worker;
 use std::time::Duration;
+use tracing::debug;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
@@ -19,47 +20,53 @@ async fn main() -> Result<(), anyhow::Error> {
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer().with_filter(replay_filter))
         .init();
-    let host = "http://localhost:49287";
+    let host = "http://localhost:3501";
     let mut client = Client::new(host.to_string()).await?;
 
     tokio::spawn(async move {
         let mut worker = Worker::new(host);
-        worker.add_orchestrator("test", orchestration);
-        worker.add_activity("test", activity);
+        worker.add_orchestrator("sequence_orchestration", sequence_orchestration);
+        worker.add_activity("test_activity", test_activity);
         worker.start().await.expect("Unable to start worker");
     });
 
+    /*
     let id = client
         .terminate_orchestration("test_id".to_string())
         .await?;
-    println!("Instance terminated {:?}", id);
+    debug!("Instance terminated {:?}", id);
 
-    let id = client.purge_orchestration("test_id".to_string()).await?;
-    println!("Instance purged {:?}", id);
+    */
+
+    let id = client.purge_orchestration("test_id2".to_string()).await?;
+    debug!("Instance purged {:?}", id);
 
     let id = client
-        .schedule_new_orchestration("test_id".to_string(), "test".to_string())
+        .schedule_new_orchestration("test_id2".to_string(), "sequence_orchestration".to_string())
         .await?;
-    println!("Instance created {:?}", id);
+    debug!("Instance created {:?}", id);
 
     tokio::time::sleep(Duration::from_secs(60)).await;
     Ok(())
 }
 
-async fn orchestration(ctx: OrchestratorContext) -> OrchestratorResult<()> {
+async fn sequence_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<()> {
+    let _ = ctx.create_timer(10000).await;
+    debug!("Sequence activity completed");
     let _ = ctx
         .call_activity(
             ActivityOptions {
-                activity_type: "activity".to_string(),
+                activity_type: "test_activity".to_string(),
             },
-            activity,
+            test_activity,
             "test".into(),
         )
         .await;
+    debug!("Sequence activity completed");
     Ok(OrchestratorResultValue::Output(()))
 }
 
-async fn activity(ctx: ActivityContext, input: String) -> ActivityResult<()> {
-    println!("Activity");
-    Ok(())
+async fn test_activity(ctx: ActivityContext, input: String) -> ActivityResult<String> {
+    debug!("Activity executing");
+    Ok("done".to_string())
 }

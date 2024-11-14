@@ -9,6 +9,7 @@ use durabletask_proto::{
 use futures_util::StreamExt;
 use std::sync::Arc;
 use tonic::IntoRequest;
+use tracing::debug;
 
 #[derive(Default)]
 pub struct Worker {
@@ -48,11 +49,13 @@ impl Worker {
                                             {
                                                 Ok(_) => {}
                                                 Err(err) => {
-                                                    println!("{:?}", err);
+                                                    debug!("{:?}", err);
                                                 }
                                             }
                                         }
-                                        Err(err) => {}
+                                        Err(err) => {
+                                            debug!("Orchestrator execution failed {:?}", err);
+                                        }
                                     }
                                 }
                                 Request::ActivityRequest(request) => {
@@ -64,11 +67,13 @@ impl Worker {
                                             {
                                                 Ok(_) => {}
                                                 Err(err) => {
-                                                    println!("{:?}", err);
+                                                    debug!("{:?}", err);
                                                 }
                                             }
                                         }
-                                        Err(err) => {}
+                                        Err(err) => {
+                                            debug!("Activity execution failed {:?}", err);
+                                        }
                                     }
                                 }
                                 Request::EntityRequest(_) => {}
@@ -108,6 +113,7 @@ impl Worker {
         registry: Arc<Registry>,
         request: OrchestratorRequest,
     ) -> Result<OrchestratorResponse, anyhow::Error> {
+        debug!("Orchestrator request: {:?}", request);
         let executor = OrchestrationExecutor::new(registry);
         let actions = executor
             .execute(
@@ -116,6 +122,7 @@ impl Worker {
                 request.new_events,
             )
             .await?;
+        debug!("Actions issued: {:?}", actions);
         Ok(OrchestratorResponse {
             instance_id: request.instance_id,
             actions,
@@ -127,6 +134,7 @@ impl Worker {
         registry: Arc<Registry>,
         request: ActivityRequest,
     ) -> Result<ActivityResponse, anyhow::Error> {
+        debug!("Activity request: {:?}", request);
         let executor = ActivityExecutor::new(registry);
         if let Some(instance) = request.orchestration_instance {
             let output = executor
@@ -137,6 +145,7 @@ impl Worker {
                     request.input,
                 )
                 .await?;
+            debug!("Activity executed: {:?}", output);
             return Ok(ActivityResponse {
                 instance_id: instance.instance_id,
                 task_id: request.task_id,

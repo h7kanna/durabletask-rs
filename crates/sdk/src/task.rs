@@ -3,6 +3,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::sync::oneshot;
+use tracing::debug;
 
 /// A Future that can be completed.
 #[derive(Default)]
@@ -34,14 +35,17 @@ impl Future for CompletableTask {
     type Output = Vec<u8>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        println!("calling activity");
+        debug!("calling task");
         match self.unblock_rx.as_mut().unwrap().poll_unpin(cx) {
-            Poll::Ready(_) => {
-                println!("Complete task ready");
-                Poll::Ready(self.result.take().unwrap())
+            Poll::Ready(result) => {
+                debug!("Complete task ready");
+                let result = result.unwrap();
+                Poll::Ready(serde_json::to_vec(&"done").unwrap())
+                //Poll::Ready(result.into_bytes())
+                //Poll::Ready(self.result.take().unwrap())
             }
             Poll::Pending => {
-                println!("Complete task not ready");
+                debug!("Complete task not ready");
                 Poll::Pending
             }
         }
