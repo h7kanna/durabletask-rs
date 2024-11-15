@@ -19,10 +19,17 @@ name = "external_events"
 path = "src/external_events.rs"
 required-features = ["tracing-subscriber"]
 
+[[example]]
+doc = false
+name = "parallel"
+path = "src/parallel.rs"
+required-features = ["tracing-subscriber"]
+
 [dependencies]
 anyhow = { workspace = true }
 durabletask-client = { path = "../crates/client" }
 durabletask-sdk = { path = "../crates/sdk" }
+futures-util = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

@@ -19,6 +19,10 @@ cargo run --example activity_sequence --features tracing-subscriber
 cargo run --example external_events --features tracing-subscriber
 ```
 
+```shell
+cargo run --example parallel --features tracing-subscriber
+```
+
 ## Test
 
 ```shell

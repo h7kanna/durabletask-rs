@@ -297,6 +297,7 @@ impl OrchestratorContext {
 
     pub fn schedule_activity(&self, name: &str, input: Option<&str>) -> CompletableTask {
         let id = self.next_sequence_number();
+        debug!("Next task {}", id);
         let action = new_schedule_task_action(id, name, input);
         self.actions_tx.send((id, action)).expect("cannot happen");
         let (task, unblock) = CompletableTask::new();

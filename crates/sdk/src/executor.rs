@@ -277,7 +277,7 @@ impl OrchestrationExecutorFuture {
         for event in events.as_ref() {
             self.process_event(ctx, cx, event);
             if let Some(action_rx) = &ctx.action_rx {
-                if let Ok((sequence_number, action)) = action_rx.try_recv() {
+                while let Ok((sequence_number, action)) = action_rx.try_recv() {
                     ctx.pending_actions.insert(sequence_number, action);
                     // TODO: Remove this after cleaning up complete task sender side
                     if sequence_number > 0 {
@@ -286,12 +286,12 @@ impl OrchestrationExecutorFuture {
                 }
             }
             if let Some(task_rx) = &ctx.task_rx {
-                if let Ok((sequence_number, action)) = task_rx.try_recv() {
-                    ctx.pending_tasks.insert(sequence_number, action);
+                while let Ok((sequence_number, task)) = task_rx.try_recv() {
+                    ctx.pending_tasks.insert(sequence_number, task);
                 }
             }
             if let Some(events_rx) = &ctx.events_rx {
-                if let Ok((event, input)) = events_rx.try_recv() {
+                while let Ok((event, input)) = events_rx.try_recv() {
                     let mut pending_events =
                         if let Some(pending_events) = ctx.pending_events.get_mut(&event) {
                             pending_events
