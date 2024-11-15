@@ -1,3 +1,4 @@
+use std::collections::{HashMap, VecDeque};
 // API portions are similar to temporal-sdk for now.
 // Errors are not handled anyhow everywhere to speed up prototyping
 use crate::internal::{new_create_timer_action, new_schedule_task_action};
@@ -207,30 +208,39 @@ where
     type OutputFuture = Fut;
 }
 
+// TODO: Just use RwLock for everything shared and remove channels?
 pub struct OrchestratorContext {
     sequence_number: Arc<RwLock<i32>>,
+    received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
     actions_tx: Sender<(i32, OrchestratorAction)>,
-    tasks_tx: Sender<(i32, oneshot::Sender<String>)>,
+    tasks_tx: Sender<(i32, oneshot::Sender<Option<String>>)>,
+    events_tx: Sender<(String, oneshot::Sender<Option<String>>)>,
 }
 
 impl OrchestratorContext {
     pub(crate) fn new(
         instance_id: String,
+        received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
     ) -> (
         Self,
         Receiver<(i32, OrchestratorAction)>,
-        Receiver<(i32, oneshot::Sender<String>)>,
+        Receiver<(i32, oneshot::Sender<Option<String>>)>,
+        Receiver<(String, oneshot::Sender<Option<String>>)>,
     ) {
         let (actions_tx, actions_rx) = std::sync::mpsc::channel();
         let (tasks_tx, tasks_rx) = std::sync::mpsc::channel();
+        let (events_tx, events_rx) = std::sync::mpsc::channel();
         (
             OrchestratorContext {
                 sequence_number: Arc::new(RwLock::new(0)),
+                received_events,
                 actions_tx,
                 tasks_tx,
+                events_tx,
             },
             actions_rx,
             tasks_rx,
+            events_rx,
         )
     }
 
@@ -299,8 +309,28 @@ impl OrchestratorContext {
         std::future::pending::<()>()
     }
 
-    pub fn await_signal_event(&self) -> impl Future<Output = ()> {
-        std::future::pending::<()>()
+    pub fn await_signal_event(&self, name: &str) -> CompletableTask {
+        let name = name.to_lowercase();
+        let (mut task, unblock) = CompletableTask::new();
+        let mut remove = false;
+        let mut lock = self.received_events.write();
+        if let Some(received_events) = lock.get_mut(&name) {
+            let event = if received_events.len() > 1 {
+                received_events.pop_front()
+            } else {
+                remove = true;
+                received_events.pop_front()
+            };
+            if remove {
+                lock.remove(&name);
+            }
+            debug!("Completing signal task {}", name);
+            task.complete(event.unwrap().unwrap().into_bytes())
+        } else {
+            debug!("Awaiting signal task {}", name);
+            self.events_tx.send((name, unblock)).expect("cannot happen");
+        }
+        task
     }
 
     pub fn continue_as_new(&self) -> impl Future<Output = ()> {

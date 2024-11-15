@@ -1,7 +1,8 @@
 use durabletask_proto::task_hub_sidecar_service_client::TaskHubSidecarServiceClient;
 use durabletask_proto::{
     purge_instances_request, CreateInstanceRequest, CreateInstanceResponse, PurgeInstancesRequest,
-    PurgeInstancesResponse, TerminateRequest, TerminateResponse,
+    PurgeInstancesResponse, RaiseEventRequest, RaiseEventResponse, TerminateRequest,
+    TerminateResponse,
 };
 
 pub struct Client {
@@ -43,6 +44,21 @@ impl Client {
             recursive: false,
         };
         let response = self.inner.terminate_instance(request).await?;
+        Ok(response.into_inner())
+    }
+
+    pub async fn raise_orchestration_event(
+        &mut self,
+        instance_id: String,
+        name: String,
+        input: Option<String>,
+    ) -> Result<RaiseEventResponse, anyhow::Error> {
+        let request = RaiseEventRequest {
+            instance_id,
+            name,
+            input,
+        };
+        let response = self.inner.raise_event(request).await?;
         Ok(response.into_inner())
     }
 

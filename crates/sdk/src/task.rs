@@ -8,15 +8,17 @@ use tracing::debug;
 /// A Future that can be completed.
 #[derive(Default)]
 pub struct CompletableTask {
+    completed: bool,
     result: Option<Vec<u8>>,
-    unblock_rx: Option<oneshot::Receiver<String>>,
+    unblock_rx: Option<oneshot::Receiver<Option<String>>>,
 }
 
 impl CompletableTask {
-    pub(crate) fn new() -> (Self, oneshot::Sender<String>) {
+    pub(crate) fn new() -> (Self, oneshot::Sender<Option<String>>) {
         let (tx, rx) = oneshot::channel();
         (
             Self {
+                completed: false,
                 result: None,
                 unblock_rx: Some(rx),
             },
@@ -24,17 +26,22 @@ impl CompletableTask {
         )
     }
     /// Complete with result
-    fn complete(&mut self, result: Vec<u8>) {
+    pub(crate) fn complete(&mut self, result: Vec<u8>) {
         self.result = Some(result);
+        self.completed = true;
     }
     /// Complete with result
-    fn fail(&mut self, result: Vec<u8>) {}
+    pub(crate) fn fail(&mut self, result: Vec<u8>) {}
 }
 
 impl Future for CompletableTask {
     type Output = Vec<u8>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.completed {
+            let result = self.result.take().unwrap();
+            return Poll::Ready(serde_json::to_vec(&"done").unwrap());
+        }
         debug!("calling task");
         match self.unblock_rx.as_mut().unwrap().poll_unpin(cx) {
             Poll::Ready(result) => {

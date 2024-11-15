@@ -14,3 +14,13 @@ dapr run --app-id myapp --dapr-http-port 3500 --dapr-grpc-port 3501
 ```shell
 cargo run --example activity_sequence --features logger
 ```
+
+```shell
+cargo run --example external_events --features logger
+```
+
+## Test
+
+```shell
+cargo test test_context -- --nocapture
+```

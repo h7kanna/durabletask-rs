@@ -13,6 +13,12 @@ name = "activity_sequence"
 path = "src/activity_sequence.rs"
 required-features = ["logger"]
 
+[[example]]
+doc = false
+name = "external_events"
+path = "src/external_events.rs"
+required-features = ["logger"]
+
 [dependencies]
 anyhow = { workspace = true }
 durabletask-client = { path = "../crates/client" }

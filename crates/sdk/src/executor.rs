@@ -8,7 +8,8 @@ use durabletask_proto::history_event::EventType;
 use durabletask_proto::{HistoryEvent, OrchestrationStatus, OrchestratorAction};
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
-use std::collections::HashMap;
+use parking_lot::RwLock;
+use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::mpsc::Receiver;
@@ -45,10 +46,13 @@ pub struct OrchestrationExecutorContext {
     is_replaying: bool,
     sequence_number: i32,
     pending_actions: HashMap<i32, OrchestratorAction>,
-    pending_tasks: HashMap<i32, oneshot::Sender<String>>,
+    pending_tasks: HashMap<i32, oneshot::Sender<Option<String>>>,
+    received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
+    pending_events: HashMap<String, VecDeque<oneshot::Sender<Option<String>>>>,
     orchestrator_fn: Option<BoxFuture<'static, OrchestratorResult<Vec<u8>>>>,
     action_rx: Option<Receiver<(i32, OrchestratorAction)>>,
-    task_rx: Option<Receiver<(i32, oneshot::Sender<String>)>>,
+    task_rx: Option<Receiver<(i32, oneshot::Sender<Option<String>>)>>,
+    events_rx: Option<Receiver<(String, oneshot::Sender<Option<String>>)>>,
 }
 
 impl OrchestrationExecutorContext {
@@ -132,8 +136,10 @@ impl OrchestrationExecutorFuture {
                 EventType::ExecutionStarted(event) => {
                     let orchestrator_fn = self.registry.get_orchestrator(&event.name);
                     if let Some(orchestrator_fn) = orchestrator_fn {
-                        let (octx, actions_rx, tasks_rx) =
-                            OrchestratorContext::new(self.instance_id.clone());
+                        let (octx, actions_rx, tasks_rx, events_rx) = OrchestratorContext::new(
+                            self.instance_id.clone(),
+                            ctx.received_events.clone(),
+                        );
                         let mut orchestrator_fn = orchestrator_fn.call(octx);
                         match orchestrator_fn.poll_unpin(cx) {
                             Poll::Ready(_) => {
@@ -144,6 +150,7 @@ impl OrchestrationExecutorFuture {
                                 ctx.orchestrator_fn = Some(orchestrator_fn);
                                 ctx.action_rx = Some(actions_rx);
                                 ctx.task_rx = Some(tasks_rx);
+                                ctx.events_rx = Some(events_rx);
                             }
                         }
                     } else {
@@ -173,7 +180,7 @@ impl OrchestrationExecutorFuture {
                         debug!("TaskCompleted task completed {:?}", task);
                         if let Some(result) = &task_completed_event.result {
                             // How to avoid clone here?
-                            task.send(result.clone())
+                            task.send(Some(result.clone()))
                                 .expect("failed to unblock activity");
                         }
                     } else {
@@ -187,7 +194,7 @@ impl OrchestrationExecutorFuture {
                         debug!("task {:?}", task);
                         if let Some(result) = &task_failed_event.failure_details {
                             // How to avoid clone here?
-                            task.send(result.error_message.clone())
+                            task.send(Some(result.error_message.clone()))
                                 .expect("failed to unblock activity")
                         }
                     } else {
@@ -211,7 +218,8 @@ impl OrchestrationExecutorFuture {
                         debug!("TimerFired task completed {:?}", task);
                         if let Some(result) = &timer_fired_event.fire_at {
                             // How to avoid clone here?
-                            task.send("".to_string()).expect("failed to unblock timer");
+                            task.send(Some("".to_string()))
+                                .expect("failed to unblock timer");
                         }
                     } else {
                         debug!("Non determinism");
@@ -219,7 +227,33 @@ impl OrchestrationExecutorFuture {
                     self.poll(ctx, cx).unwrap()
                 }
                 EventType::EventSent(event) => {}
-                EventType::EventRaised(event) => {}
+                EventType::EventRaised(event) => {
+                    let name = event.name.to_lowercase();
+                    let mut remove = false;
+                    if let Some(pending_tasks) = ctx.pending_events.get_mut(&name) {
+                        let task = if pending_tasks.len() > 1 {
+                            pending_tasks.pop_front()
+                        } else {
+                            remove = true;
+                            pending_tasks.pop_front()
+                        };
+                        if remove {
+                            ctx.pending_events.remove(&name);
+                        }
+                        task.unwrap().send(event.input.clone()).unwrap();
+                        self.poll(ctx, cx).unwrap()
+                    } else {
+                        let mut lock = ctx.received_events.write();
+                        let mut received_events = if let Some(received_events) = lock.get_mut(&name)
+                        {
+                            received_events
+                        } else {
+                            lock.insert(name.clone(), VecDeque::new());
+                            lock.get_mut(&name).unwrap()
+                        };
+                        received_events.push_back(event.input.clone())
+                    }
+                }
                 EventType::GenericEvent(event) => {}
                 EventType::HistoryState(event) => {}
                 EventType::ContinueAsNew(_) => {}
@@ -240,12 +274,27 @@ impl OrchestrationExecutorFuture {
             if let Some(action_rx) = &ctx.action_rx {
                 if let Ok((sequence_number, action)) = action_rx.try_recv() {
                     ctx.pending_actions.insert(sequence_number, action);
-                    ctx.sequence_number = sequence_number;
+                    // TODO: Remove this after cleaning up complete task sender side
+                    if sequence_number > 0 {
+                        ctx.sequence_number = sequence_number;
+                    }
                 }
             }
             if let Some(task_rx) = &ctx.task_rx {
                 if let Ok((sequence_number, action)) = task_rx.try_recv() {
                     ctx.pending_tasks.insert(sequence_number, action);
+                }
+            }
+            if let Some(events_rx) = &ctx.events_rx {
+                if let Ok((event, input)) = events_rx.try_recv() {
+                    let mut pending_events =
+                        if let Some(pending_events) = ctx.pending_events.get_mut(&event) {
+                            pending_events
+                        } else {
+                            ctx.pending_events.insert(event.clone(), VecDeque::new());
+                            ctx.pending_events.get_mut(&event).unwrap()
+                        };
+                    pending_events.push_back(input)
                 }
             }
         }
