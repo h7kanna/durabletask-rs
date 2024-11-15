@@ -383,9 +383,8 @@ impl ActivityExecutor {
         if let Some(activity_fn) = self.registry.get_activity(&name) {
             debug!("Executing Activity name: {:?}, task: {}", name, task_id);
             let actx = ActivityContext::new(instance_id, task_id);
-            //let output = activity_fn.call(actx, input).await?;
-            //debug!("Activity output {:?}", String::from_utf8(output)?);
-            Ok(Some("testing".to_string()))
+            let output = activity_fn.call(actx, input).await?;
+            Ok(Some(String::from_utf8(output)?))
         } else {
             Ok(None)
         }

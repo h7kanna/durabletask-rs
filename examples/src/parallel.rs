@@ -73,11 +73,14 @@ async fn parallel_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<
         format!("test {}", 2),
     );
     let (output1, output2) = join!(activity1, activity2);
-    info!("Parallel orchestration completed");
+    info!(
+        "Parallel orchestration completed: {:?} {:?}",
+        output1, output2
+    );
     Ok(OrchestratorResultValue::Output(()))
 }
 
 async fn test_activity(ctx: ActivityContext, input: String) -> ActivityResult<String> {
     debug!("Activity executing");
-    Ok("done".to_string())
+    Ok(input.to_string())
 }

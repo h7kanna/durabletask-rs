@@ -9,7 +9,7 @@ use tracing::debug;
 #[derive(Default)]
 pub struct CompletableTask {
     completed: bool,
-    result: Option<Vec<u8>>,
+    result: Option<String>,
     unblock_rx: Option<oneshot::Receiver<Option<String>>>,
 }
 
@@ -26,30 +26,28 @@ impl CompletableTask {
         )
     }
     /// Complete with result
-    pub(crate) fn complete(&mut self, result: Vec<u8>) {
+    pub(crate) fn complete(&mut self, result: String) {
         self.result = Some(result);
         self.completed = true;
     }
     /// Complete with result
-    pub(crate) fn fail(&mut self, result: Vec<u8>) {}
+    pub(crate) fn fail(&mut self, result: String) {}
 }
 
 impl Future for CompletableTask {
-    type Output = Vec<u8>;
+    type Output = String;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self.completed {
             let result = self.result.take().unwrap();
-            return Poll::Ready(serde_json::to_vec(&"done").unwrap());
+            return Poll::Ready(result);
         }
         debug!("calling task");
         match self.unblock_rx.as_mut().unwrap().poll_unpin(cx) {
             Poll::Ready(result) => {
                 debug!("Complete task ready");
-                let result = result.unwrap();
-                Poll::Ready(serde_json::to_vec(&"done").unwrap())
-                //Poll::Ready(result.into_bytes())
-                //Poll::Ready(self.result.take().unwrap())
+                let result = result.unwrap().unwrap();
+                Poll::Ready(result)
             }
             Poll::Pending => {
                 debug!("Complete task not ready");

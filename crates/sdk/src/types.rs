@@ -278,6 +278,8 @@ impl OrchestratorContext {
         R: FromJsonPayloadExt + Debug,
     {
         let input = A::as_json_payload(&a).expect("input serialization failed");
+        // TODO: Avoid this conversion using from_utf8_unchecked?
+        let input = String::from_utf8(input).expect("input serialization failed");
         let activity_type = if options.activity_type.is_empty() {
             std::any::type_name::<F>().to_string()
         } else {
@@ -287,18 +289,17 @@ impl OrchestratorContext {
             activity_type,
             ..options
         };
-        let activity_result = self.schedule_activity(&options.activity_type, None).await;
-        debug!(
-            "Result: {}",
-            String::from_utf8(activity_result.clone()).unwrap()
-        );
-        Ok(R::from_json_payload(&activity_result).expect("output deserialization failed"))
+        let activity_result = self
+            .schedule_activity(&options.activity_type, Some(input))
+            .await;
+        Ok(R::from_json_payload(&activity_result.as_bytes())
+            .expect("output deserialization failed"))
     }
 
-    pub fn schedule_activity(&self, name: &str, input: Option<&str>) -> CompletableTask {
+    pub fn schedule_activity(&self, name: &str, input: Option<String>) -> CompletableTask {
         let id = self.next_sequence_number();
         debug!("Next task {}", id);
-        let action = new_schedule_task_action(id, name, input);
+        let action = new_schedule_task_action(id, name, input.as_ref().map(|s| s.as_str()));
         self.actions_tx.send((id, action)).expect("cannot happen");
         let (task, unblock) = CompletableTask::new();
         self.tasks_tx.send((id, unblock)).expect("cannot happen");
@@ -326,7 +327,7 @@ impl OrchestratorContext {
                 lock.remove(&name);
             }
             debug!("Completing signal task {}", name);
-            task.complete(event.unwrap().unwrap().into_bytes())
+            task.complete(event.unwrap().unwrap())
         } else {
             debug!("Awaiting signal task {}", name);
             self.events_tx.send((name, unblock)).expect("cannot happen");
