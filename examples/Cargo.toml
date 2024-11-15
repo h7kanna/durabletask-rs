@@ -5,19 +5,19 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [features]
-logger = ["durabletask-sdk/logger"]
+tracing-subscriber = ["durabletask-sdk/tracing-subscriber"]
 
 [[example]]
 doc = false
 name = "activity_sequence"
 path = "src/activity_sequence.rs"
-required-features = ["logger"]
+required-features = ["tracing-subscriber"]
 
 [[example]]
 doc = false
 name = "external_events"
 path = "src/external_events.rs"
-required-features = ["logger"]
+required-features = ["tracing-subscriber"]
 
 [dependencies]
 anyhow = { workspace = true }

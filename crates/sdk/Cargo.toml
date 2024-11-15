@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["logger"]
-logger = ["tracing-subscriber"]
+default = ["tracing-subscriber"]
+tracing-subscriber = ["dep:tracing-subscriber"]
 random = ["rand"]
 
 [dependencies]

@@ -56,6 +56,11 @@ pub struct OrchestrationExecutorContext {
 }
 
 impl OrchestrationExecutorContext {
+    fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
     fn next_sequence_number(&mut self) -> i32 {
         self.sequence_number += 1;
         self.sequence_number
@@ -307,11 +312,13 @@ impl Future for OrchestrationExecutorFuture {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let is_suspended = false;
         let suspended_events: Vec<HistoryEvent> = vec![];
-        let mut ctx = OrchestrationExecutorContext::default();
+        let mut ctx = OrchestrationExecutorContext::new();
         ctx.is_replaying = true;
+        tracing::Span::current().record("replaying", true);
         let old_events = self.old_events.clone();
         self.process_events(&mut ctx, cx, old_events);
         ctx.is_replaying = false;
+        tracing::Span::current().record("replaying", false);
         let new_events = self.new_events.clone();
         self.process_events(&mut ctx, cx, new_events);
         Poll::Ready(Ok(ctx.get_actions()))

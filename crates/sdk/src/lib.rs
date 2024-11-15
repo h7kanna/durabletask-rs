@@ -1,7 +1,7 @@
 pub mod api;
 pub mod errors;
+pub mod filter;
 pub mod internal;
-pub mod logger;
 pub mod task;
 pub mod types;
 pub mod worker;

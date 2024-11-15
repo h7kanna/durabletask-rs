@@ -5,7 +5,7 @@ use durabletask_sdk::types::{
 };
 use durabletask_sdk::worker::Worker;
 use std::time::Duration;
-use tracing::debug;
+use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
@@ -15,7 +15,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // initialize tracing
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "external_events=debug,durabletask_sdk=debug".into());
-    let replay_filter = durabletask_sdk::logger::ReplayFilter::new();
+    let replay_filter = durabletask_sdk::filter::ReplayFilter::new();
     tracing_subscriber::registry()
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer().with_filter(replay_filter))
@@ -49,6 +49,7 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 async fn external_events(ctx: OrchestratorContext) -> OrchestratorResult<()> {
+    info!("External events started");
     let _ = ctx.await_signal_event("test_signal").await;
     debug!("External events completed");
     Ok(OrchestratorResultValue::Output(()))

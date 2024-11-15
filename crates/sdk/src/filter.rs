@@ -17,7 +17,7 @@ struct ReplayFieldVisitor(bool);
 
 impl Visit for ReplayFieldVisitor {
     fn record_bool(&mut self, field: &Field, value: bool) {
-        if field.name().eq("replay") {
+        if field.name().eq("replaying") {
             self.0 = value;
         }
     }

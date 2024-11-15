@@ -5,7 +5,7 @@ use durabletask_sdk::types::{
 };
 use durabletask_sdk::worker::Worker;
 use std::time::Duration;
-use tracing::debug;
+use tracing::{debug, info};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
@@ -14,8 +14,8 @@ use tracing_subscriber::Layer;
 async fn main() -> Result<(), anyhow::Error> {
     // initialize tracing
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "activity_sequence=debug,durabletask_sdk=debug".into());
-    let replay_filter = durabletask_sdk::logger::ReplayFilter::new();
+        .unwrap_or_else(|_| "activity_sequence=debug,durabletask_sdk=info".into());
+    let replay_filter = durabletask_sdk::filter::ReplayFilter::new();
     tracing_subscriber::registry()
         .with(env_filter)
         .with(tracing_subscriber::fmt::layer().with_filter(replay_filter))
@@ -38,11 +38,11 @@ async fn main() -> Result<(), anyhow::Error> {
 
     */
 
-    let id = client.purge_orchestration("test_id2".to_string()).await?;
+    let id = client.purge_orchestration("test_id4".to_string()).await?;
     debug!("Instance purged {:?}", id);
 
     let id = client
-        .schedule_new_orchestration("test_id2".to_string(), "sequence_orchestration".to_string())
+        .schedule_new_orchestration("test_id4".to_string(), "sequence_orchestration".to_string())
         .await?;
     debug!("Instance created {:?}", id);
 
@@ -51,8 +51,8 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 async fn sequence_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<()> {
+    info!("Sequence orchestration started");
     let _ = ctx.create_timer(10000).await;
-    debug!("Sequence activity completed");
     let _ = ctx
         .call_activity(
             ActivityOptions {
@@ -62,7 +62,7 @@ async fn sequence_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<
             "test".into(),
         )
         .await;
-    debug!("Sequence activity completed");
+    info!("Sequence orchestration completed");
     Ok(OrchestratorResultValue::Output(()))
 }
 

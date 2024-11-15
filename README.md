@@ -12,11 +12,11 @@ dapr run --app-id myapp --dapr-http-port 3500 --dapr-grpc-port 3501
 ```
 
 ```shell
-cargo run --example activity_sequence --features logger
+cargo run --example activity_sequence --features tracing-subscriber
 ```
 
 ```shell
-cargo run --example external_events --features logger
+cargo run --example external_events --features tracing-subscriber
 ```
 
 ## Test

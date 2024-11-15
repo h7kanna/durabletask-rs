@@ -9,7 +9,7 @@ use durabletask_proto::{
 use futures_util::StreamExt;
 use std::sync::Arc;
 use tonic::IntoRequest;
-use tracing::debug;
+use tracing::{debug, field, info_span, Instrument};
 
 #[derive(Default)]
 pub struct Worker {
@@ -115,13 +115,32 @@ impl Worker {
     ) -> Result<OrchestratorResponse, anyhow::Error> {
         debug!("Orchestrator request: {:?}", request);
         let executor = OrchestrationExecutor::new(registry);
-        let actions = executor
-            .execute(
-                request.instance_id.clone(),
-                request.past_events,
-                request.new_events,
-            )
-            .await?;
+        let mut actions;
+        #[cfg(feature = "tracing-subscriber")]
+        {
+            actions = executor
+                .execute(
+                    request.instance_id.clone(),
+                    request.past_events,
+                    request.new_events,
+                )
+                .instrument(info_span!(
+                    "execute",
+                    "instance_id" = request.instance_id,
+                    "replaying" = field::Empty,
+                ))
+                .await?;
+        }
+        #[cfg(not(feature = "tracing-subscriber"))]
+        {
+            actions = executor
+                .execute(
+                    request.instance_id.clone(),
+                    request.past_events,
+                    request.new_events,
+                )
+                .await?;
+        }
         debug!("Actions issued: {:?}", actions);
         Ok(OrchestratorResponse {
             instance_id: request.instance_id,
