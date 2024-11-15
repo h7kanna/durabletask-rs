@@ -25,6 +25,12 @@ name = "parallel"
 path = "src/parallel.rs"
 required-features = ["tracing-subscriber"]
 
+[[example]]
+doc = false
+name = "terminate_test"
+path = "src/terminate_test.rs"
+required-features = ["tracing-subscriber"]
+
 [dependencies]
 anyhow = { workspace = true }
 durabletask-client = { path = "../crates/client" }

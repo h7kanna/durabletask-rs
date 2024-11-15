@@ -37,11 +37,12 @@ impl Client {
     pub async fn terminate_orchestration(
         &mut self,
         instance_id: String,
+        recursive: bool,
     ) -> Result<TerminateResponse, anyhow::Error> {
         let request = TerminateRequest {
             instance_id,
             output: None,
-            recursive: false,
+            recursive,
         };
         let response = self.inner.terminate_instance(request).await?;
         Ok(response.into_inner())

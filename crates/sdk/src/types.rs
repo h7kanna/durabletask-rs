@@ -334,7 +334,11 @@ impl OrchestratorContext {
         task
     }
 
-    pub fn continue_as_new(&self) -> impl Future<Output = ()> {
+    pub fn continue_as_new<A: AsJsonPayloadExt + Debug>(
+        &self,
+        new_input: A,
+        save_events: bool,
+    ) -> impl Future<Output = ()> {
         std::future::pending::<()>()
     }
 }

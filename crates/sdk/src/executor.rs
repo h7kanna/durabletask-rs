@@ -1,4 +1,4 @@
-use crate::internal::new_complete_orchestration_action;
+use crate::internal::{new_complete_orchestration_action, new_terminate_orchestration_action};
 use crate::registry::Registry;
 use crate::types::{
     ActivityContext, OrchestratorContext, OrchestratorResult, OrchestratorResultValue,
@@ -9,6 +9,7 @@ use durabletask_proto::{HistoryEvent, OrchestrationStatus, OrchestratorAction};
 use futures_util::future::BoxFuture;
 use futures_util::FutureExt;
 use parking_lot::RwLock;
+use prost_wkt_types::Timestamp;
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
@@ -44,7 +45,9 @@ impl OrchestrationExecutor {
 #[derive(Default)]
 pub struct OrchestrationExecutorContext {
     is_replaying: bool,
+    is_complete: bool,
     sequence_number: i32,
+    current_time_utc: Timestamp,
     pending_actions: HashMap<i32, OrchestratorAction>,
     pending_tasks: HashMap<i32, oneshot::Sender<Option<String>>>,
     received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
@@ -53,6 +56,7 @@ pub struct OrchestrationExecutorContext {
     action_rx: Option<Receiver<(i32, OrchestratorAction)>>,
     task_rx: Option<Receiver<(i32, oneshot::Sender<Option<String>>)>>,
     events_rx: Option<Receiver<(String, oneshot::Sender<Option<String>>)>>,
+    completion_status: OrchestrationStatus,
 }
 
 impl OrchestrationExecutorContext {
@@ -72,6 +76,12 @@ impl OrchestrationExecutorContext {
             .map(|action| action.clone())
             .collect()
     }
+    fn set_complete(&mut self, status: OrchestrationStatus) {
+        if self.is_complete {
+            return;
+        }
+        self.completion_status = status;
+    }
 }
 
 pub struct OrchestrationExecutorFuture {
@@ -87,6 +97,9 @@ impl OrchestrationExecutorFuture {
         ctx: &mut OrchestrationExecutorContext,
         cx: &mut Context<'_>,
     ) -> Result<(), anyhow::Error> {
+        if ctx.is_complete {
+            return Ok(());
+        }
         if let Some(orchestrator_fn) = &mut ctx.orchestrator_fn {
             match orchestrator_fn.poll_unpin(cx) {
                 Poll::Ready(result) => {
@@ -137,7 +150,11 @@ impl OrchestrationExecutorFuture {
     ) {
         if let Some(event_type) = &event.event_type {
             match event_type {
-                EventType::OrchestratorStarted(event) => {}
+                EventType::OrchestratorStarted(started_event) => {
+                    if let Some(timestamp) = event.timestamp {
+                        ctx.current_time_utc = timestamp;
+                    }
+                }
                 EventType::ExecutionStarted(event) => {
                     let orchestrator_fn = self.registry.get_orchestrator(&event.name);
                     if let Some(orchestrator_fn) = orchestrator_fn {
@@ -170,7 +187,30 @@ impl OrchestrationExecutorFuture {
                         }
                     }
                 }
-                EventType::ExecutionTerminated(_) => {}
+                EventType::ExecutionTerminated(terminated_event) => {
+                    ctx.set_complete(OrchestrationStatus::Terminated);
+                    let task_id = ctx.next_sequence_number();
+                    /*
+                    ctx.pending_actions.insert(
+                        task_id,
+                        new_terminate_orchestration_action(
+                            task_id,
+                            &self.instance_id,
+                            terminated_event.recurse,
+                            terminated_event.input.as_ref().map(|r| r.as_str()),
+                        ),
+                    );*/
+                    ctx.pending_actions.insert(
+                        task_id,
+                        new_complete_orchestration_action(
+                            task_id,
+                            OrchestrationStatus::Terminated,
+                            None,
+                            &vec![],
+                            None,
+                        ),
+                    );
+                }
                 EventType::TaskScheduled(task_event) => {
                     let task_id = event.event_id;
                     if let Some(action) = ctx.pending_actions.remove(&task_id) {
