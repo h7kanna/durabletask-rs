@@ -6,14 +6,21 @@ use durabletask_proto::{
     TerminateRequest, TerminateResponse,
 };
 
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+pub enum Error {
+    Transport(#[from] tonic::transport::Error),
+    Grpc(#[from] tonic::Status),
+}
+
 #[derive(Clone)]
 pub struct Client {
     inner: TaskHubSidecarServiceClient<tonic::transport::Channel>,
 }
 
 impl Client {
-    pub async fn new(host: String) -> Result<Self, anyhow::Error> {
-        let inner = TaskHubSidecarServiceClient::connect(host).await?;
+    pub async fn new(host: &str) -> Result<Self, Error> {
+        let inner = TaskHubSidecarServiceClient::connect(host.to_string()).await?;
         Ok(Self { inner })
     }
 
@@ -21,7 +28,7 @@ impl Client {
         &mut self,
         instance_id: String,
         name: String,
-    ) -> Result<CreateInstanceResponse, anyhow::Error> {
+    ) -> Result<CreateInstanceResponse, Error> {
         let request = CreateInstanceRequest {
             instance_id,
             name,
@@ -40,7 +47,7 @@ impl Client {
         &mut self,
         instance_id: String,
         fetch_payloads: bool,
-    ) -> Result<Option<OrchestrationState>, anyhow::Error> {
+    ) -> Result<Option<OrchestrationState>, Error> {
         let request = GetInstanceRequest {
             instance_id,
             get_inputs_and_outputs: fetch_payloads,
@@ -53,7 +60,7 @@ impl Client {
         &mut self,
         instance_id: String,
         recursive: bool,
-    ) -> Result<TerminateResponse, anyhow::Error> {
+    ) -> Result<TerminateResponse, Error> {
         let request = TerminateRequest {
             instance_id,
             output: None,
@@ -68,7 +75,7 @@ impl Client {
         instance_id: String,
         name: String,
         input: Option<String>,
-    ) -> Result<RaiseEventResponse, anyhow::Error> {
+    ) -> Result<RaiseEventResponse, Error> {
         let request = RaiseEventRequest {
             instance_id,
             name,
@@ -81,7 +88,7 @@ impl Client {
     pub async fn suspend_orchestration(
         &mut self,
         instance_id: String,
-    ) -> Result<SuspendResponse, anyhow::Error> {
+    ) -> Result<SuspendResponse, Error> {
         let request = SuspendRequest {
             instance_id,
             reason: None,
@@ -93,7 +100,7 @@ impl Client {
     pub async fn resume_orchestration(
         &mut self,
         instance_id: String,
-    ) -> Result<ResumeResponse, anyhow::Error> {
+    ) -> Result<ResumeResponse, Error> {
         let request = ResumeRequest {
             instance_id,
             reason: None,
@@ -105,7 +112,7 @@ impl Client {
     pub async fn purge_orchestration(
         &mut self,
         instance_id: String,
-    ) -> Result<PurgeInstancesResponse, anyhow::Error> {
+    ) -> Result<PurgeInstancesResponse, Error> {
         let request = PurgeInstancesRequest {
             recursive: false,
             request: Some(purge_instances_request::Request::InstanceId(instance_id)),

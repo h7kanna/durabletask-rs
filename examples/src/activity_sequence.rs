@@ -21,7 +21,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .with(tracing_subscriber::fmt::layer().with_filter(replay_filter))
         .init();
     let host = "http://localhost:3501";
-    let mut client = Client::new(host.to_string()).await?;
+    let mut client = Client::new(host).await?;
 
     tokio::spawn(async move {
         let mut worker = Worker::new(host);
