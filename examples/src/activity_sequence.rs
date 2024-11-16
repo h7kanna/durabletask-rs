@@ -38,6 +38,13 @@ async fn main() -> Result<(), anyhow::Error> {
 
     */
 
+    let id = client
+        .get_orchestration_state("test_id4".to_string(), true)
+        .await?;
+    if let Some(state) = id {
+        debug!("Instance state {:?}", state);
+    }
+
     let id = client.purge_orchestration("test_id4".to_string()).await?;
     debug!("Instance purged {:?}", id);
 

@@ -1,10 +1,12 @@
 use durabletask_proto::task_hub_sidecar_service_client::TaskHubSidecarServiceClient;
 use durabletask_proto::{
-    purge_instances_request, CreateInstanceRequest, CreateInstanceResponse, PurgeInstancesRequest,
-    PurgeInstancesResponse, RaiseEventRequest, RaiseEventResponse, TerminateRequest,
-    TerminateResponse,
+    purge_instances_request, CreateInstanceRequest, CreateInstanceResponse, GetInstanceRequest,
+    OrchestrationState, PurgeInstancesRequest, PurgeInstancesResponse, RaiseEventRequest,
+    RaiseEventResponse, ResumeRequest, ResumeResponse, SuspendRequest, SuspendResponse,
+    TerminateRequest, TerminateResponse,
 };
 
+#[derive(Clone)]
 pub struct Client {
     inner: TaskHubSidecarServiceClient<tonic::transport::Channel>,
 }
@@ -34,6 +36,19 @@ impl Client {
         Ok(response.into_inner())
     }
 
+    pub async fn get_orchestration_state(
+        &mut self,
+        instance_id: String,
+        fetch_payloads: bool,
+    ) -> Result<Option<OrchestrationState>, anyhow::Error> {
+        let request = GetInstanceRequest {
+            instance_id,
+            get_inputs_and_outputs: fetch_payloads,
+        };
+        let response = self.inner.get_instance(request).await?;
+        Ok(response.into_inner().orchestration_state)
+    }
+
     pub async fn terminate_orchestration(
         &mut self,
         instance_id: String,
@@ -60,6 +75,30 @@ impl Client {
             input,
         };
         let response = self.inner.raise_event(request).await?;
+        Ok(response.into_inner())
+    }
+
+    pub async fn suspend_orchestration(
+        &mut self,
+        instance_id: String,
+    ) -> Result<SuspendResponse, anyhow::Error> {
+        let request = SuspendRequest {
+            instance_id,
+            reason: None,
+        };
+        let response = self.inner.suspend_instance(request).await?;
+        Ok(response.into_inner())
+    }
+
+    pub async fn resume_orchestration(
+        &mut self,
+        instance_id: String,
+    ) -> Result<ResumeResponse, anyhow::Error> {
+        let request = ResumeRequest {
+            instance_id,
+            reason: None,
+        };
+        let response = self.inner.resume_instance(request).await?;
         Ok(response.into_inner())
     }
 
