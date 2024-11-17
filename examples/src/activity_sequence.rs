@@ -58,7 +58,11 @@ async fn main() -> Result<(), anyhow::Error> {
     debug!("Instance purged {:?}", id);
 
     let id = client
-        .schedule_new_orchestration("test_id4".to_string(), "sequence_orchestration".to_string())
+        .schedule_new_orchestration::<String>(
+            "sequence_orchestration".to_string(),
+            None,
+            "test_id4".to_string(),
+        )
         .await?;
     debug!("Instance created {:?}", id);
 

@@ -26,16 +26,22 @@ impl Client {
         Ok(Self { inner })
     }
 
-    pub async fn schedule_new_orchestration(
+    pub async fn schedule_new_orchestration<T: Serialize>(
         &mut self,
-        instance_id: String,
         name: String,
+        input: Option<T>,
+        instance_id: String,
     ) -> Result<CreateInstanceResponse, Error> {
+        let input = if let Some(input) = input {
+            Some(serde_json::to_string(&input)?)
+        } else {
+            None
+        };
         let request = CreateInstanceRequest {
             instance_id,
             name,
             version: None,
-            input: None,
+            input,
             scheduled_start_timestamp: None,
             orchestration_id_reuse_policy: None,
             execution_id: None,
@@ -74,9 +80,9 @@ impl Client {
 
     pub async fn raise_orchestration_event<T: Serialize>(
         &mut self,
-        instance_id: String,
         name: String,
         input: Option<T>,
+        instance_id: String,
     ) -> Result<RaiseEventResponse, Error> {
         let input = if let Some(input) = input {
             Some(serde_json::to_string(&input)?)

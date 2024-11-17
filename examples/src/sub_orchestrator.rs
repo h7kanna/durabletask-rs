@@ -36,8 +36,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let id = client
         .schedule_new_orchestration(
-            "test_id58".to_string(),
             "sequence_orchestration".to_string(),
+            Some("test".to_string()),
+            "test_id58".to_string(),
         )
         .await?;
     debug!("Instance created {:?}", id);

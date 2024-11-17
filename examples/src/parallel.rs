@@ -48,7 +48,11 @@ async fn main() -> Result<(), anyhow::Error> {
      */
 
     let id = client
-        .schedule_new_orchestration("test_id6".to_string(), "parallel_orchestration".to_string())
+        .schedule_new_orchestration::<String>(
+            "parallel_orchestration".to_string(),
+            None,
+            "test_id6".to_string(),
+        )
         .await?;
     debug!("Instance created {:?}", id);
 

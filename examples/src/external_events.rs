@@ -33,7 +33,11 @@ async fn main() -> Result<(), anyhow::Error> {
     debug!("Instance purged {:?}", id);
 
     let id = client
-        .schedule_new_orchestration("test_id45".to_string(), "external_events".to_string())
+        .schedule_new_orchestration::<String>(
+            "external_events".to_string(),
+            None,
+            "test_id45".to_string(),
+        )
         .await?;
     debug!("Instance created {:?}", id);
 
@@ -41,9 +45,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let id = client
         .raise_orchestration_event(
-            "test_id45".to_string(),
             "test_signal".to_string(),
             Some("signal_input".to_string()),
+            "test_id45".to_string(),
         )
         .await?;
     debug!("Raised event {:?}", id);

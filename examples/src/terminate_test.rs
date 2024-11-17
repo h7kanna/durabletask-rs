@@ -30,7 +30,11 @@ async fn main() -> Result<(), anyhow::Error> {
     });
 
     let id = client
-        .schedule_new_orchestration("test_id9".to_string(), "terminate_test".to_string())
+        .schedule_new_orchestration(
+            "terminate_test".to_string(),
+            Some("test".to_string()),
+            "test_id9".to_string(),
+        )
         .await?;
     debug!("Instance created {:?}", id);
 
