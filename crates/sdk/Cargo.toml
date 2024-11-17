@@ -12,6 +12,7 @@ random = ["rand"]
 anyhow = { workspace = true }
 durabletask-proto = { path = "../proto" }
 dashmap = { version = "6.1.0" }
+derive_more = { version = "1.0.0", features = ["from"] }
 futures-util = { workspace = true }
 gethostname = { version = "0.5.0" }
 opentelemetry = { workspace = true }

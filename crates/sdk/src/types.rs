@@ -60,8 +60,9 @@ where
 pub type OrchestratorResult<T> = Result<OrchestratorResultValue<T>, anyhow::Error>;
 
 /// Orchestrator result value
-#[derive(Debug)]
+#[derive(Debug, derive_more::From, Serialize, Deserialize)]
 pub enum OrchestratorResultValue<T> {
+    #[from(ignore)]
     ContinueAsNew,
     Output(T),
 }

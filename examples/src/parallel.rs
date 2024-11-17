@@ -77,7 +77,7 @@ async fn parallel_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<
         "Parallel orchestration completed: {:?} {:?}",
         output1, output2
     );
-    Ok(OrchestratorResultValue::Output(()))
+    Ok(().into())
 }
 
 async fn test_activity(ctx: ActivityContext, input: String) -> ActivityResult<String> {
