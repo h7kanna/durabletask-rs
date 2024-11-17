@@ -46,8 +46,13 @@ impl Future for CompletableTask {
         match self.unblock_rx.as_mut().unwrap().poll_unpin(cx) {
             Poll::Ready(result) => {
                 debug!("Complete task ready");
-                let result = result.unwrap().unwrap();
-                Poll::Ready(result)
+                match result {
+                    Ok(result) => {
+                        let result = result.unwrap();
+                        Poll::Ready(result)
+                    }
+                    Err(_) => Poll::Pending,
+                }
             }
             Poll::Pending => {
                 debug!("Complete task not ready");

@@ -120,7 +120,7 @@ impl OrchestrationExecutorFuture {
                                 new_complete_orchestration_action(
                                     task_id,
                                     OrchestrationStatus::Completed,
-                                    None,
+                                    Some(String::from_utf8(output).unwrap().as_str()),
                                     &vec![],
                                     None,
                                 )
@@ -161,6 +161,7 @@ impl OrchestrationExecutorFuture {
                     if let Some(orchestrator_fn) = orchestrator_fn {
                         let (octx, actions_rx, tasks_rx, events_rx) = OrchestratorContext::new(
                             self.instance_id.clone(),
+                            event.input.clone(),
                             ctx.received_events.clone(),
                         );
                         let mut orchestrator_fn = orchestrator_fn.call(octx);
@@ -265,7 +266,7 @@ impl OrchestrationExecutorFuture {
                         if let Some(result) = &task_completed_event.result {
                             // How to avoid clone here?
                             task.send(Some(result.clone()))
-                                .expect("failed to unblock activity");
+                                .expect("failed to unblock sub orchestrator");
                         }
                     } else {
                         debug!("Non determinism");
@@ -284,6 +285,7 @@ impl OrchestrationExecutorFuture {
                     } else {
                         debug!("Non determinism");
                     }
+                    self.poll(ctx, cx).unwrap()
                 }
                 EventType::TimerCreated(timer_created_event) => {
                     let task_id = event.event_id;

@@ -68,13 +68,15 @@ pub enum OrchestratorResultValue<T> {
     Output(T),
 }
 
-type OrchestratorFn = dyn Fn(OrchestratorContext) -> BoxFuture<'static, OrchestratorResult<Vec<u8>>>
-    + Send
-    + Sync
-    + 'static;
+type OrchestratorFn = Box<
+    dyn Fn(OrchestratorContext) -> BoxFuture<'static, OrchestratorResult<Vec<u8>>>
+        + Send
+        + Sync
+        + 'static,
+>;
 
 pub struct OrchestratorFunction {
-    orchestrator_fn: Box<OrchestratorFn>,
+    orchestrator_fn: OrchestratorFn,
 }
 
 impl<F, Fut, O> From<F> for OrchestratorFunction
@@ -230,6 +232,8 @@ pub struct SubOrchestratorOptions {
 // TODO: Just use RwLock for everything shared and remove channels?
 pub struct OrchestratorContext {
     instance_id: String,
+    // TODO: Remove after cleanup of orchestrator function
+    input: Option<String>,
     sequence_number: Arc<RwLock<i32>>,
     received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
     actions_tx: Sender<(i32, OrchestratorAction)>,
@@ -240,6 +244,7 @@ pub struct OrchestratorContext {
 impl OrchestratorContext {
     pub(crate) fn new(
         instance_id: String,
+        input: Option<String>,
         received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
     ) -> (
         Self,
@@ -253,6 +258,7 @@ impl OrchestratorContext {
         (
             OrchestratorContext {
                 instance_id,
+                input,
                 sequence_number: Arc::new(RwLock::new(0)),
                 received_events,
                 actions_tx,
@@ -273,6 +279,14 @@ impl OrchestratorContext {
 
     pub fn instance_id(&self) -> String {
         self.instance_id.clone()
+    }
+
+    pub fn input<O: FromJsonPayloadExt>(&self) -> Result<Option<O>, anyhow::Error> {
+        if let Some(input) = &self.input {
+            Ok(Some(O::from_json_payload(input.as_bytes())?))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn create_timer(&self, fire_after_millis: u64) -> CompletableTask {
@@ -420,5 +434,27 @@ impl OrchestratorContext {
         save_events: bool,
     ) -> impl Future<Output = ()> {
         std::future::pending::<()>()
+    }
+}
+
+pub fn into_orchestrator<A, F, R, O>(
+    f: F,
+) -> impl Fn(
+    OrchestratorContext,
+) -> BoxFuture<'static, Result<OrchestratorResultValue<O>, anyhow::Error>>
+       + Send
+       + Sync
+where
+    A: FromJsonPayloadExt + Send,
+    F: AsyncFn<OrchestratorContext, Option<A>, Output = Result<R, anyhow::Error>>
+        + Send
+        + Sync
+        + 'static,
+    R: Into<OrchestratorResultValue<O>>,
+    O: AsJsonPayloadExt + Debug,
+{
+    move |ctx: OrchestratorContext| match ctx.input() {
+        Ok(a) => (f)(ctx, a).map(|r| r.map(|r| r.into())).boxed(),
+        Err(e) => async move { Err(e.into()) }.boxed(),
     }
 }
