@@ -283,8 +283,8 @@ impl OrchestratorContext {
     ) -> Result<R, anyhow::Error>
     where
         F: AsyncFn<ActivityContext, A, Output = ActivityResult<R>> + Send + 'static,
-        A: AsJsonPayloadExt + Debug,
-        R: FromJsonPayloadExt + Debug,
+        A: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
+        R: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
     {
         let input = A::as_json_payload(&a).expect("input serialization failed");
         // TODO: Avoid this conversion using from_utf8_unchecked?
@@ -324,8 +324,8 @@ impl OrchestratorContext {
     ) -> Result<R, anyhow::Error>
     where
         F: AsyncFn<OrchestratorContext, A, Output = OrchestratorResult<R>> + Send + 'static,
-        A: AsJsonPayloadExt + Debug,
-        R: FromJsonPayloadExt + Debug,
+        A: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
+        R: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
     {
         let input = A::as_json_payload(&a).expect("input serialization failed");
         // TODO: Avoid this conversion using from_utf8_unchecked?
