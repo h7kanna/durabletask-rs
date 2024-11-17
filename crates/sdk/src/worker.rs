@@ -1,6 +1,8 @@
+use crate::environment::Environment;
 use crate::executor::{ActivityExecutor, OrchestrationExecutor};
 use crate::registry::Registry;
 use crate::types::{ActivityFunction, IntoActivityFunc, OrchestratorFunction};
+use anyhow::anyhow;
 use durabletask_proto::{
     task_hub_sidecar_service_client::TaskHubSidecarServiceClient, work_item::Request,
     ActivityRequest, ActivityResponse, GetWorkItemsRequest, OrchestratorRequest,
@@ -15,6 +17,7 @@ use tracing::{debug, field, info_span, Instrument};
 pub struct Worker {
     host: String,
     registry: Registry,
+    environment: Option<Environment>,
 }
 
 impl Worker {
@@ -22,19 +25,26 @@ impl Worker {
         Self {
             registry: Registry::default(),
             host: host.to_string(),
+            environment: Some(Default::default()),
         }
     }
 
-    pub async fn start(self) -> Result<(), anyhow::Error> {
+    pub async fn start(mut self) -> Result<(), anyhow::Error> {
         let mut client = TaskHubSidecarServiceClient::connect(self.host).await?;
         let mut stream = client
             .get_work_items(GetWorkItemsRequest {})
             .await?
             .into_inner();
         let registry = Arc::new(self.registry);
+        let environment = Arc::new(
+            self.environment
+                .take()
+                .ok_or_else(|| anyhow!("environment should exist"))?,
+        );
         while let Some(item) = stream.next().await {
             let mut client = client.clone();
             let registry = registry.clone();
+            let environment = environment.clone();
             tokio::spawn(async move {
                 match item {
                     Ok(item) => {
@@ -59,7 +69,9 @@ impl Worker {
                                     }
                                 }
                                 Request::ActivityRequest(request) => {
-                                    match Self::execute_activity(registry, request).await {
+                                    match Self::execute_activity(registry, environment, request)
+                                        .await
+                                    {
                                         Ok(response) => {
                                             match client
                                                 .complete_activity_task(response.into_request())
@@ -109,6 +121,11 @@ impl Worker {
         );
     }
 
+    /// Insert Objects into Activity environment
+    pub fn add_environment<T: Send + Sync + 'static>(&mut self, data: T) {
+        self.environment.as_mut().map(|a| a.insert(data));
+    }
+
     async fn execute_orchestrator(
         registry: Arc<Registry>,
         request: OrchestratorRequest,
@@ -151,10 +168,11 @@ impl Worker {
 
     async fn execute_activity(
         registry: Arc<Registry>,
+        environment: Arc<Environment>,
         request: ActivityRequest,
     ) -> Result<ActivityResponse, anyhow::Error> {
         debug!("Activity request: {:?}", request);
-        let executor = ActivityExecutor::new(registry);
+        let executor = ActivityExecutor::new(registry, environment);
         if let Some(instance) = request.orchestration_instance {
             let output = executor
                 .execute(

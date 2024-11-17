@@ -10,6 +10,12 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::Layer;
 
+/// Activity Environment
+#[derive(Debug)]
+pub struct Environment {
+    pub workspace: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     // initialize tracing
@@ -25,6 +31,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tokio::spawn(async move {
         let mut worker = Worker::new(host);
+        worker.add_environment(Environment {
+            workspace: ".".to_string(),
+        });
         worker.add_orchestrator("sequence_orchestration", sequence_orchestration);
         worker.add_activity("test_activity", test_activity);
         worker.start().await.expect("Unable to start worker");
@@ -74,6 +83,10 @@ async fn sequence_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<
 }
 
 async fn test_activity(ctx: ActivityContext, input: String) -> ActivityResult<String> {
-    debug!("Activity executing");
+    let environment: Option<&Environment> = ctx.environment();
+    debug!(
+        "Activity executing: input: {}, environment {:?}",
+        input, environment
+    );
     Ok("done".to_string())
 }

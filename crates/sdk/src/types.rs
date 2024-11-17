@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 // API portions are similar to temporal-sdk for now.
 // Errors are not handled anyhow everywhere to speed up prototyping
+use crate::environment::Environment;
 use crate::internal::{
     new_create_sub_orchestration_action, new_create_timer_action, new_schedule_task_action,
 };
@@ -129,16 +130,26 @@ pub struct ActivityOptions {
 }
 
 pub struct ActivityContext {
-    pub orchestration_id: String,
-    pub task_id: i32,
+    orchestration_id: String,
+    task_id: i32,
+    environment: Arc<Environment>,
 }
 
 impl ActivityContext {
-    pub(crate) fn new(orchestration_id: String, task_id: i32) -> Self {
+    pub(crate) fn new(
+        orchestration_id: String,
+        task_id: i32,
+        environment: Arc<Environment>,
+    ) -> Self {
         Self {
             orchestration_id,
             task_id,
+            environment,
         }
+    }
+    /// Get value from Activity Environment
+    pub fn environment<T: Send + Sync + 'static>(&self) -> Option<&T> {
+        self.environment.get::<T>()
     }
 }
 

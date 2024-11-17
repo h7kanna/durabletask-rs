@@ -1,3 +1,4 @@
+use crate::environment::Environment;
 use crate::internal::{new_complete_orchestration_action, new_terminate_orchestration_action};
 use crate::registry::Registry;
 use crate::types::{
@@ -402,11 +403,15 @@ impl Future for OrchestrationExecutorFuture {
 
 pub struct ActivityExecutor {
     registry: Arc<Registry>,
+    environment: Arc<Environment>,
 }
 
 impl ActivityExecutor {
-    pub fn new(registry: Arc<Registry>) -> Self {
-        Self { registry }
+    pub fn new(registry: Arc<Registry>, environment: Arc<Environment>) -> Self {
+        Self {
+            registry,
+            environment,
+        }
     }
     pub async fn execute(
         &self,
@@ -417,7 +422,7 @@ impl ActivityExecutor {
     ) -> Result<Option<String>, anyhow::Error> {
         if let Some(activity_fn) = self.registry.get_activity(&name) {
             debug!("Executing Activity name: {:?}, task: {}", name, task_id);
-            let actx = ActivityContext::new(instance_id, task_id);
+            let actx = ActivityContext::new(instance_id, task_id, self.environment.clone());
             let output = activity_fn.call(actx, input).await?;
             Ok(Some(String::from_utf8(output)?))
         } else {
