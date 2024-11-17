@@ -29,18 +29,22 @@ async fn main() -> Result<(), anyhow::Error> {
         worker.start().await.expect("Unable to start worker");
     });
 
-    let id = client.purge_orchestration("test_id4".to_string()).await?;
+    let id = client.purge_orchestration("test_id45".to_string()).await?;
     debug!("Instance purged {:?}", id);
 
     let id = client
-        .schedule_new_orchestration("test_id4".to_string(), "external_events".to_string())
+        .schedule_new_orchestration("test_id45".to_string(), "external_events".to_string())
         .await?;
     debug!("Instance created {:?}", id);
 
     tokio::time::sleep(Duration::from_secs(3)).await;
 
     let id = client
-        .raise_orchestration_event("test_id4".to_string(), "test_signal".to_string(), None)
+        .raise_orchestration_event(
+            "test_id45".to_string(),
+            "test_signal".to_string(),
+            Some("signal_input".to_string()),
+        )
         .await?;
     debug!("Raised event {:?}", id);
 
@@ -48,9 +52,9 @@ async fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn external_events(ctx: OrchestratorContext) -> OrchestratorResult<()> {
+async fn external_events(ctx: OrchestratorContext) -> OrchestratorResult<String> {
     info!("External events started");
-    let _ = ctx.await_signal_event("test_signal").await;
-    debug!("External events completed");
-    Ok(OrchestratorResultValue::Output(()))
+    let result = ctx.await_signal_event("test_signal").await?;
+    debug!("External events completed: {}", result);
+    Ok(OrchestratorResultValue::Output(result))
 }

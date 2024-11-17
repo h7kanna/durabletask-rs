@@ -5,10 +5,12 @@ use durabletask_proto::{
     RaiseEventResponse, ResumeRequest, ResumeResponse, SuspendRequest, SuspendResponse,
     TerminateRequest, TerminateResponse,
 };
+use serde::Serialize;
 
 #[derive(thiserror::Error, Debug)]
 #[error(transparent)]
 pub enum Error {
+    Serde(#[from] serde_json::Error),
     Transport(#[from] tonic::transport::Error),
     Grpc(#[from] tonic::Status),
 }
@@ -70,12 +72,17 @@ impl Client {
         Ok(response.into_inner())
     }
 
-    pub async fn raise_orchestration_event(
+    pub async fn raise_orchestration_event<T: Serialize>(
         &mut self,
         instance_id: String,
         name: String,
-        input: Option<String>,
+        input: Option<T>,
     ) -> Result<RaiseEventResponse, Error> {
+        let input = if let Some(input) = input {
+            Some(serde_json::to_string(&input)?)
+        } else {
+            None
+        };
         let request = RaiseEventRequest {
             instance_id,
             name,

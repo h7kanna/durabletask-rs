@@ -372,28 +372,35 @@ impl OrchestratorContext {
         task
     }
 
-    pub fn await_signal_event(&self, name: &str) -> CompletableTask {
+    pub async fn await_signal_event<R: AsJsonPayloadExt + FromJsonPayloadExt + Debug>(
+        &self,
+        name: &str,
+    ) -> Result<R, anyhow::Error> {
         let name = name.to_lowercase();
         let (mut task, unblock) = CompletableTask::new();
         let mut remove = false;
-        let mut lock = self.received_events.write();
-        if let Some(received_events) = lock.get_mut(&name) {
-            let event = if received_events.len() > 1 {
-                received_events.pop_front()
+        let task = {
+            let mut lock = self.received_events.write();
+            if let Some(received_events) = lock.get_mut(&name) {
+                let event = if received_events.len() > 1 {
+                    received_events.pop_front()
+                } else {
+                    remove = true;
+                    received_events.pop_front()
+                };
+                if remove {
+                    lock.remove(&name);
+                }
+                debug!("Completing signal task {}", name);
+                task.complete(event.unwrap().unwrap())
             } else {
-                remove = true;
-                received_events.pop_front()
-            };
-            if remove {
-                lock.remove(&name);
+                debug!("Awaiting signal task {}", name);
+                self.events_tx.send((name, unblock)).expect("cannot happen");
             }
-            debug!("Completing signal task {}", name);
-            task.complete(event.unwrap().unwrap())
-        } else {
-            debug!("Awaiting signal task {}", name);
-            self.events_tx.send((name, unblock)).expect("cannot happen");
-        }
-        task
+            task
+        };
+        let signal_result = task.await;
+        Ok(R::from_json_payload(&signal_result.as_bytes()).expect("output deserialization failed"))
     }
 
     pub fn continue_as_new<A: AsJsonPayloadExt + Debug>(
