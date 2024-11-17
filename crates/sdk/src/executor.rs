@@ -246,9 +246,44 @@ impl OrchestrationExecutorFuture {
                         debug!("Non determinism");
                     }
                 }
-                EventType::SubOrchestrationInstanceCreated(_) => {}
-                EventType::SubOrchestrationInstanceCompleted(_) => {}
-                EventType::SubOrchestrationInstanceFailed(_) => {}
+                EventType::SubOrchestrationInstanceCreated(_) => {
+                    let task_id = event.event_id;
+                    if let Some(action) = ctx.pending_actions.remove(&task_id) {
+                        debug!("SubOrchestrationInstanceCreated: action {:?}", action);
+                    } else {
+                        debug!("Non determinism");
+                    }
+                }
+                EventType::SubOrchestrationInstanceCompleted(task_completed_event) => {
+                    let task_id = task_completed_event.task_scheduled_id;
+                    if let Some(task) = ctx.pending_tasks.remove(&task_id) {
+                        debug!(
+                            "SubOrchestrationInstanceCompleted task completed {:?}",
+                            task
+                        );
+                        if let Some(result) = &task_completed_event.result {
+                            // How to avoid clone here?
+                            task.send(Some(result.clone()))
+                                .expect("failed to unblock activity");
+                        }
+                    } else {
+                        debug!("Non determinism");
+                    }
+                    self.poll(ctx, cx).unwrap()
+                }
+                EventType::SubOrchestrationInstanceFailed(task_failed_event) => {
+                    let task_id = task_failed_event.task_scheduled_id;
+                    if let Some(task) = ctx.pending_tasks.remove(&task_id) {
+                        debug!("task {:?}", task);
+                        if let Some(result) = &task_failed_event.failure_details {
+                            // How to avoid clone here?
+                            task.send(Some(result.error_message.clone()))
+                                .expect("failed to unblock activity")
+                        }
+                    } else {
+                        debug!("Non determinism");
+                    }
+                }
                 EventType::TimerCreated(timer_created_event) => {
                     let task_id = event.event_id;
                     if let Some(action) = ctx.pending_actions.remove(&task_id) {

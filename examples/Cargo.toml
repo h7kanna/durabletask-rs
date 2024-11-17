@@ -15,6 +15,12 @@ required-features = ["tracing-subscriber"]
 
 [[example]]
 doc = false
+name = "sub_orchestrator"
+path = "src/sub_orchestrator.rs"
+required-features = ["tracing-subscriber"]
+
+[[example]]
+doc = false
 name = "external_events"
 path = "src/external_events.rs"
 required-features = ["tracing-subscriber"]

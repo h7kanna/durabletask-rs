@@ -1,7 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 // API portions are similar to temporal-sdk for now.
 // Errors are not handled anyhow everywhere to speed up prototyping
-use crate::internal::{new_create_timer_action, new_schedule_task_action};
+use crate::internal::{
+    new_create_sub_orchestration_action, new_create_timer_action, new_schedule_task_action,
+};
 use crate::task::CompletableTask;
 use durabletask_proto::OrchestratorAction;
 use futures_util::future::BoxFuture;
@@ -208,8 +210,14 @@ where
     type OutputFuture = Fut;
 }
 
+pub struct SubOrchestratorOptions {
+    pub orchestrator_type: String,
+    pub instance_id: String,
+}
+
 // TODO: Just use RwLock for everything shared and remove channels?
 pub struct OrchestratorContext {
+    instance_id: String,
     sequence_number: Arc<RwLock<i32>>,
     received_events: Arc<RwLock<HashMap<String, VecDeque<Option<String>>>>>,
     actions_tx: Sender<(i32, OrchestratorAction)>,
@@ -232,6 +240,7 @@ impl OrchestratorContext {
         let (events_tx, events_rx) = std::sync::mpsc::channel();
         (
             OrchestratorContext {
+                instance_id,
                 sequence_number: Arc::new(RwLock::new(0)),
                 received_events,
                 actions_tx,
@@ -251,7 +260,7 @@ impl OrchestratorContext {
     }
 
     pub fn instance_id(&self) -> String {
-        "".to_string()
+        self.instance_id.clone()
     }
 
     pub fn create_timer(&self, fire_after_millis: u64) -> CompletableTask {
@@ -296,7 +305,7 @@ impl OrchestratorContext {
             .expect("output deserialization failed"))
     }
 
-    pub fn schedule_activity(&self, name: &str, input: Option<String>) -> CompletableTask {
+    pub(crate) fn schedule_activity(&self, name: &str, input: Option<String>) -> CompletableTask {
         let id = self.next_sequence_number();
         debug!("Next task {}", id);
         let action = new_schedule_task_action(id, name, input.as_ref().map(|s| s.as_str()));
@@ -307,8 +316,59 @@ impl OrchestratorContext {
         task
     }
 
-    pub fn call_sub_orchestrator(&self) -> impl Future<Output = ()> {
-        std::future::pending::<()>()
+    pub async fn call_sub_orchestrator<A, F, R>(
+        &self,
+        options: SubOrchestratorOptions,
+        _f: F,
+        a: A,
+    ) -> Result<R, anyhow::Error>
+    where
+        F: AsyncFn<OrchestratorContext, A, Output = OrchestratorResult<R>> + Send + 'static,
+        A: AsJsonPayloadExt + Debug,
+        R: FromJsonPayloadExt + Debug,
+    {
+        let input = A::as_json_payload(&a).expect("input serialization failed");
+        // TODO: Avoid this conversion using from_utf8_unchecked?
+        let input = String::from_utf8(input).expect("input serialization failed");
+        let orchestrator_type = if options.orchestrator_type.is_empty() {
+            std::any::type_name::<F>().to_string()
+        } else {
+            options.orchestrator_type
+        };
+        let options = SubOrchestratorOptions {
+            orchestrator_type,
+            ..options
+        };
+        let orchestrator_result = self
+            .schedule_sub_orchestrator(
+                &options.orchestrator_type,
+                &options.instance_id,
+                Some(input),
+            )
+            .await;
+        Ok(R::from_json_payload(&orchestrator_result.as_bytes())
+            .expect("output deserialization failed"))
+    }
+
+    pub(crate) fn schedule_sub_orchestrator(
+        &self,
+        name: &str,
+        instance_id: &str,
+        input: Option<String>,
+    ) -> CompletableTask {
+        let id = self.next_sequence_number();
+        debug!("Next task {}", id);
+        let action = new_create_sub_orchestration_action(
+            id,
+            name,
+            instance_id,
+            input.as_ref().map(|s| s.as_str()),
+        );
+        self.actions_tx.send((id, action)).expect("cannot happen");
+        let (task, unblock) = CompletableTask::new();
+        self.tasks_tx.send((id, unblock)).expect("cannot happen");
+        debug!("Call sub orchestrator task {}", id);
+        task
     }
 
     pub fn await_signal_event(&self, name: &str) -> CompletableTask {

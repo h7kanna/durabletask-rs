@@ -11,6 +11,13 @@ dapr init
 dapr run --app-id myapp --dapr-http-port 3500 --dapr-grpc-port 3501
 ```
 
+## Postgres
+
+```shell
+docker run -p 5432:5432 -e POSTGRES_PASSWORD=example postgres
+dapr run --app-id denote --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path components
+```
+
 ```shell
 cargo run --example activity_sequence --features tracing-subscriber
 ```
