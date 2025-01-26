@@ -143,6 +143,7 @@ impl OrchestrationExecutorFuture {
             Err(anyhow!("Polled without orchestration future"))
         }
     }
+
     fn process_event(
         &mut self,
         ctx: &mut OrchestrationExecutorContext,
@@ -346,6 +347,7 @@ impl OrchestrationExecutorFuture {
             }
         }
     }
+
     fn process_events(
         &mut self,
         ctx: &mut OrchestrationExecutorContext,
@@ -455,10 +457,10 @@ mod tests {
         debug!("Hello test_orchestration");
         let _ = ctx
             .call_activity(
+                test_activity,
                 ActivityOptions {
                     activity_type: "test".to_string(),
                 },
-                test_activity,
                 "input".into(),
             )
             .await;

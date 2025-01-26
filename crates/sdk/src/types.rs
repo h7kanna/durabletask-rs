@@ -303,16 +303,16 @@ impl OrchestratorContext {
 
     pub async fn call_activity<A, F, R>(
         &self,
-        options: ActivityOptions,
         _f: F,
-        a: A,
+        options: ActivityOptions,
+        input: A,
     ) -> Result<R, anyhow::Error>
     where
         F: AsyncFn<ActivityContext, A, Output = ActivityResult<R>> + Send + 'static,
         A: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
         R: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
     {
-        let input = A::as_json_payload(&a).expect("input serialization failed");
+        let input = A::as_json_payload(&input).expect("input serialization failed");
         // TODO: Avoid this conversion using from_utf8_unchecked?
         let input = String::from_utf8(input).expect("input serialization failed");
         let activity_type = if options.activity_type.is_empty() {
@@ -344,16 +344,16 @@ impl OrchestratorContext {
 
     pub async fn call_sub_orchestrator<A, F, R>(
         &self,
-        options: SubOrchestratorOptions,
         _f: F,
-        a: A,
+        options: SubOrchestratorOptions,
+        input: A,
     ) -> Result<R, anyhow::Error>
     where
         F: AsyncFn<OrchestratorContext, A, Output = OrchestratorResult<R>> + Send + 'static,
         A: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
         R: AsJsonPayloadExt + FromJsonPayloadExt + Debug,
     {
-        let input = A::as_json_payload(&a).expect("input serialization failed");
+        let input = A::as_json_payload(&input).expect("input serialization failed");
         // TODO: Avoid this conversion using from_utf8_unchecked?
         let input = String::from_utf8(input).expect("input serialization failed");
         let orchestrator_type = if options.orchestrator_type.is_empty() {

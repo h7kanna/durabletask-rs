@@ -63,17 +63,17 @@ async fn main() -> Result<(), anyhow::Error> {
 async fn parallel_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<()> {
     info!("Parallel orchestration started");
     let activity1 = ctx.call_activity(
+        test_activity,
         ActivityOptions {
             activity_type: "test_activity".to_string(),
         },
-        test_activity,
         format!("test {}", 1),
     );
     let activity2 = ctx.call_activity(
+        test_activity,
         ActivityOptions {
             activity_type: "test_activity".to_string(),
         },
-        test_activity,
         format!("test {}", 2),
     );
     let (output1, output2) = join!(activity1, activity2);

@@ -75,10 +75,10 @@ async fn sequence_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<
     let _ = ctx.create_timer(10000).await;
     let _ = ctx
         .call_activity(
+            test_activity,
             ActivityOptions {
                 activity_type: "test_activity".to_string(),
             },
-            test_activity,
             "test".into(),
         )
         .await;

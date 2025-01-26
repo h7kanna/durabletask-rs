@@ -51,20 +51,20 @@ async fn sequence_orchestration(ctx: OrchestratorContext) -> OrchestratorResult<
     info!("Sequence orchestration started");
     let _ = ctx
         .call_activity(
+            test_activity,
             ActivityOptions {
                 activity_type: "test_activity".to_string(),
             },
-            test_activity,
             "test".into(),
         )
         .await;
     let _ = ctx
         .call_sub_orchestrator(
+            sub_sequence_orchestration,
             SubOrchestratorOptions {
                 orchestrator_type: "sub_sequence_orchestration".to_string(),
                 instance_id: format!("sub-{}", ctx.instance_id()),
             },
-            sub_sequence_orchestration,
             Some("test".into()),
         )
         .await;
@@ -79,10 +79,10 @@ async fn sub_sequence_orchestration(
     info!("Sub sequence orchestration started: input: {:?}", input);
     let output: String = ctx
         .call_activity(
+            test_activity,
             ActivityOptions {
                 activity_type: "test_activity".to_string(),
             },
-            test_activity,
             input.unwrap_or("activity_input".to_string()),
         )
         .await?;
