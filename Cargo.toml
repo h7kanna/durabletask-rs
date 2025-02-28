@@ -23,25 +23,25 @@ repository = "https://github.com/h7kanna/durabletask-rs"
 description = "DurableTask Rust SDK"
 
 [workspace.dependencies]
-anyhow = { version = "1.0.93" }
-async-trait = { version = "0.1.83" }
-bytes = { version = "1.8.0" }
-derive_more = { version = "1.0.0" }
+anyhow = { version = "1.0.96" }
+async-trait = { version = "0.1.86" }
+bytes = { version = "1.10.0" }
+derive_more = { version = "2.0.1" }
 futures-util = { version = "0.3.31" }
-opentelemetry = { version = "0.27.0" }
-prost = { version = "0.13.3" }
-prost-build = { version = "0.13.3" }
-prost-types = { version = "0.13.3" }
+opentelemetry = { version = "0.28.0" }
+prost = { version = "0.13.5" }
+prost-build = { version = "0.13.5" }
+prost-types = { version = "0.13.5" }
 prost-wkt-types = { version = "0.6.0" }
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = { version = "1.0.132" }
-thiserror = { version = "2.0.3" }
-tokio = { version = "1.41.1", features = ["full"] }
-tokio-stream = "0.1.16"
-tokio-util = { version = "0.7.12", features = ["full"] }
+serde = { version = "1.0.218", features = ["derive"] }
+serde_json = { version = "1.0.139" }
+thiserror = { version = "2.0.11" }
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-stream = "0.1.17"
+tokio-util = { version = "0.7.13", features = ["full"] }
 tokio-test = { version = "0.4.4" }
 tonic = { version = "0.12.3" }
 tonic-build = { version = "0.12.3" }
-tracing = { version = "0.1.40" }
+tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter", "registry", "json"] }
-uuid = { version = "1.11.0", features = ["v4", "fast-rng"] }
+uuid = { version = "1.15.1", features = ["v4", "fast-rng"] }

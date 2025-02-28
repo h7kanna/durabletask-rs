@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-testcontainers = { version = "0.23.1" }
+testcontainers = { version = "0.23.3" }
 tokio = { workspace = true }
