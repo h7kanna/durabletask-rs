@@ -28,7 +28,7 @@ async-trait = { version = "0.1.86" }
 bytes = { version = "1.10.0" }
 derive_more = { version = "2.0.1" }
 futures-util = { version = "0.3.31" }
-opentelemetry = { version = "0.28.0" }
+opentelemetry = { version = "0.30.0" }
 prost = { version = "0.13.5" }
 prost-build = { version = "0.13.5" }
 prost-types = { version = "0.13.5" }
@@ -40,8 +40,8 @@ tokio = { version = "1.43.0", features = ["full"] }
 tokio-stream = "0.1.17"
 tokio-util = { version = "0.7.13", features = ["full"] }
 tokio-test = { version = "0.4.4" }
-tonic = { version = "0.12.3" }
-tonic-build = { version = "0.12.3" }
+tonic = { version = "0.13.1" }
+tonic-build = { version = "0.13.1" }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3", features = ["parking_lot", "env-filter", "registry", "json"] }
 uuid = { version = "1.15.1", features = ["v4", "fast-rng"] }
