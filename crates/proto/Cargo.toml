@@ -9,7 +9,8 @@ prost = { workspace = true }
 prost-wkt-types = { workspace = true }
 serde = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 
 [build-dependencies]
 anyhow = { workspace = true }
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }

@@ -1,6 +1,6 @@
 fn main() -> Result<(), anyhow::Error> {
     println!("cargo:rerun-if-changed=../../submodules/durabletask-protobuf");
-    tonic_build::configure()
+    tonic_prost_build::configure()
         .build_server(false)
         .build_client(true)
         .build_transport(true)
